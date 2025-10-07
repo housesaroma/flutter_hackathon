@@ -1,37 +1,21 @@
-# Miscellaneous
-*.class
-*.log
-*.pyc
-*.swp
-.DS_Store
-.atom/
-.build/
-.buildlog/
-.history
-.svn/
-.swiftpm/
-migrate_working_dir/
+# Created by https://www.toptal.com/developers/gitignore/api/flutter
+# Edit at https://www.toptal.com/developers/gitignore?templates=flutter
 
-# IntelliJ related
-*.iml
-*.ipr
-*.iws
-.idea/
-
-# The .vscode folder contains launch configuration and tasks you configure in
-# VS Code which you may wish to be included in version control, so this line
-# is commented out by default.
-#.vscode/
-
-# Flutter/Dart/Pub related
-**/doc/api/
-**/ios/Flutter/.last_build_id
+### Flutter ###
+flutter/
+**/flutter/**/*.json
+**/flutter/**/.last_build_id
 .dart_tool/
+.flutter-plugins
 .flutter-plugins-dependencies
+.packages
 .pub-cache/
 .pub/
 /build/
-/coverage/
+flutter_export_environment.sh
+
+# Web related
+lib/generated_plugin_registrant.dart
 
 # Symbolication related
 app.*.symbols
@@ -43,3 +27,73 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+### Flutter.pub ###
+**/doc/api/
+**/ios/Flutter/.last_build_id
+**/lib/generated_plugin_registrant.dart
+
+### Android ###
+# Built application files
+*.apk
+*.aar
+*.ap_
+*.aab
+
+# Files for the ART/Dalvik VM
+*.dex
+
+# Java class files
+*.class
+
+# Generated files
+bin/
+gen/
+out/
+
+# Gradle files
+.gradle/
+build/
+
+# Local configuration file (sdk path, etc)
+local.properties
+
+# Log Files
+*.log
+
+# Android Studio
+*.iml
+.idea/
+
+# Keystore files
+*.jks
+*.keystore
+
+### iOS ###
+# Xcode
+**/build/
+*.pbxuser
+!default.pbxuser
+*.mode1v3
+!default.mode1v3
+*.mode2v3
+!default.mode2v3
+*.perspectivev3
+!default.perspectivev3
+xcuserdata/
+*.xccheckout
+*.moved-aside
+DerivedData
+*.hmap
+*.ipa
+*.xcuserstate
+*.xcscmblueprint
+
+# CocoaPods
+**/ios/Pods/
+
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
