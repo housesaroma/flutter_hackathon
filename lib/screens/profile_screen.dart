@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../services/auth_service.dart';
+import '../services/event_service.dart';
 import '../models/user_model.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -15,6 +16,7 @@ class ProfileScreen extends StatefulWidget {
 class _ProfileScreenState extends State<ProfileScreen> {
   final _formKey = GlobalKey<FormState>();
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final EventService _eventService = EventService();
 
   late TextEditingController _nameController;
   late TextEditingController _emailController;
@@ -23,20 +25,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   bool _isEditing = false;
   bool _isLoading = false;
-  bool _dataLoaded = false; // Флаг загрузки данных
+  bool _dataLoaded = false;
   String? _phone;
   String? _department;
+  String? _selectedDeputyId;
+  List<AppUser> _deputies = [];
+  bool _deputiesLoading = false;
 
   @override
   void initState() {
     super.initState();
-    // Инициализация контроллеров сразу
     _nameController = TextEditingController();
     _emailController = TextEditingController();
     _phoneController = TextEditingController();
     _departmentController = TextEditingController();
-    
+
     _loadUserData();
+    _loadDeputies();
   }
 
   Future<void> _loadUserData() async {
@@ -49,6 +54,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           setState(() {
             _phone = data?['phone'] ?? '';
             _department = data?['department'] ?? '';
+            _selectedDeputyId = data?['deputyId'];
           });
         }
       }
@@ -56,7 +62,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
       final authService = Provider.of<AuthService>(context, listen: false);
       final appUser = authService.currentUser;
 
-      // Устанавливаем значения в контроллеры
       _nameController.text = appUser?.name ?? '';
       _emailController.text = appUser?.email ?? '';
       _phoneController.text = _phone ?? '';
@@ -68,8 +73,27 @@ class _ProfileScreenState extends State<ProfileScreen> {
     } catch (e) {
       print('Ошибка загрузки данных: $e');
       setState(() {
-        _dataLoaded = true; // Все равно помечаем как загруженное, чтобы показать интерфейс
+        _dataLoaded = true;
       });
+    }
+  }
+
+  Future<void> _loadDeputies() async {
+    if (_deputies.isNotEmpty) return;
+
+    setState(() => _deputiesLoading = true);
+
+    try {
+      final deputiesStream = _eventService.getDeputies();
+      final deputies = await deputiesStream.first;
+
+      setState(() {
+        _deputies = deputies;
+        _deputiesLoading = false;
+      });
+    } catch (e) {
+      print('Ошибка загрузки депутатов: $e');
+      setState(() => _deputiesLoading = false);
     }
   }
 
@@ -77,8 +101,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     setState(() {
       _isEditing = !_isEditing;
       if (!_isEditing) {
-        // Сброс значений при отмене редактирования
-        _loadUserData();
+        _loadUserData(); // Сброс значений при отмене
       }
     });
   }
@@ -92,17 +115,34 @@ class _ProfileScreenState extends State<ProfileScreen> {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) throw Exception('Пользователь не авторизован');
 
-      // Обновляем данные в Firestore
-      await _firestore.collection('users').doc(user.uid).update({
+      final updateData = {
         'name': _nameController.text.trim(),
-        'phone': _phoneController.text.trim(),
-        'department': _departmentController.text.trim(),
+        'phone': _phoneController.text.trim().isEmpty
+            ? null
+            : _phoneController.text.trim(),
+        'department': _departmentController.text.trim().isEmpty
+            ? null
+            : _departmentController.text.trim(),
         'updatedAt': DateTime.now().millisecondsSinceEpoch,
-      });
+      };
+
+      // Если выбран депутат и пользователь не депутат, добавляем deputyId
+      final authService = Provider.of<AuthService>(context, listen: false);
+      final currentUser = authService.currentUser;
+
+      if (!currentUser!.isDeputy && _selectedDeputyId != null) {
+        updateData['deputyId'] = _selectedDeputyId;
+      } else if (!currentUser.isDeputy &&
+          _selectedDeputyId == null &&
+          currentUser.deputyId != null) {
+        // Если убрали привязку к депутату
+        updateData['deputyId'] = null;
+      }
+
+      await _firestore.collection('users').doc(user.uid).update(updateData);
 
       // Обновляем локальные данные
-      final authService = Provider.of<AuthService>(context, listen: false);
-      await authService.initialize(); // Перезагружаем данные пользователя
+      await authService.initialize();
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -129,12 +169,120 @@ class _ProfileScreenState extends State<ProfileScreen> {
     await authService.signOut();
   }
 
+  String? _getCurrentDeputyName() {
+    if (_selectedDeputyId == null) return null;
+    final deputy = _deputies.firstWhere(
+      (d) => d.uid == _selectedDeputyId,
+      orElse: () => AppUser(
+        uid: '',
+        name: '',
+        email: '',
+        isDeputy: true,
+        createdAt: DateTime.now(),
+      ),
+    );
+    return deputy.name.isEmpty ? null : deputy.name;
+  }
+
+  Widget _buildDeputySection(AppUser user) {
+    // Показываем только для сотрудников аппарата
+    if (user.isDeputy) {
+      return const SizedBox.shrink();
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 16),
+        const Text(
+          'Прикрепленный депутат',
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: Color(0xFF2E7D32),
+          ),
+        ),
+        const SizedBox(height: 8),
+
+        if (!_isEditing) ...[
+          // Режим просмотра
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              border: Border.all(color: Colors.grey.shade300),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: _selectedDeputyId != null && _getCurrentDeputyName() != null
+                ? Text(
+                    _getCurrentDeputyName()!,
+                    style: const TextStyle(fontSize: 16),
+                  )
+                : const Text(
+                    'Не прикреплен',
+                    style: TextStyle(fontSize: 16, color: Colors.grey),
+                  ),
+          ),
+        ] else ...[
+          // Режим редактирования
+          _deputiesLoading
+              ? const Center(child: CircularProgressIndicator())
+              : _deputies.isEmpty
+              ? const Text(
+                  'Депутаты не найдены',
+                  style: TextStyle(color: Colors.grey),
+                )
+              : DropdownButtonFormField<String>(
+                  value: _selectedDeputyId,
+                  decoration: InputDecoration(
+                    labelText: 'Выберите депутата',
+                    prefixIcon: const Icon(
+                      Icons.person,
+                      color: Color(0xFF2E7D32),
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    focusedBorder: const OutlineInputBorder(
+                      borderSide: BorderSide(
+                        color: Color(0xFF2E7D32),
+                        width: 2,
+                      ),
+                    ),
+                  ),
+                  items: [
+                    const DropdownMenuItem<String>(
+                      value: null,
+                      child: Text('Не прикреплен'),
+                    ),
+                    ..._deputies.map((deputy) {
+                      return DropdownMenuItem<String>(
+                        value: deputy.uid,
+                        child: Text(deputy.name),
+                      );
+                    }).toList(),
+                  ],
+                  onChanged: (value) {
+                    setState(() {
+                      _selectedDeputyId = value;
+                    });
+                  },
+                  validator: (value) {
+                    // Валидация не обязательна, так как прикрепление к депутату не обязательно
+                    return null;
+                  },
+                ),
+        ],
+        const SizedBox(height: 16),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final authService = Provider.of<AuthService>(context);
     final user = authService.currentUser;
 
-    // Показываем индикатор загрузки, пока данные не загружены
     if (!_dataLoaded || user == null) {
       return Scaffold(
         appBar: AppBar(
@@ -153,7 +301,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
         foregroundColor: Colors.white,
         actions: [
           if (!_isEditing)
-            IconButton(icon: const Icon(Icons.edit), onPressed: _toggleEditing),
+            IconButton(
+              icon: const Icon(Icons.edit),
+              onPressed: _toggleEditing,
+              tooltip: 'Редактировать профиль',
+            ),
         ],
       ),
       body: SingleChildScrollView(
@@ -162,15 +314,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
           key: _formKey,
           child: Column(
             children: [
-              // Аватар и основная информация
               _buildProfileHeader(user),
               const SizedBox(height: 24),
 
-              // Форма профиля
+              // Секция прикрепленного депутата
+              _buildDeputySection(user),
+
               _buildProfileForm(user),
               const SizedBox(height: 24),
-
-              // Кнопки действий
               _buildActionButtons(),
             ],
           ),
@@ -191,6 +342,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         Text(
           user.name,
           style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+          textAlign: TextAlign.center,
         ),
         const SizedBox(height: 8),
         Chip(
@@ -200,6 +352,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
           backgroundColor: const Color(0xFF2E7D32),
         ),
+        if (!user.isDeputy &&
+            _selectedDeputyId != null &&
+            _getCurrentDeputyName() != null) ...[
+          const SizedBox(height: 8),
+          Chip(
+            label: Text(
+              'Помощник: ${_getCurrentDeputyName()!}',
+              style: const TextStyle(color: Colors.white, fontSize: 12),
+            ),
+            backgroundColor: Colors.blue,
+          ),
+        ],
       ],
     );
   }
@@ -224,7 +388,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           label: 'Email',
           controller: _emailController,
           icon: Icons.email,
-          enabled: false, // Email нельзя менять
+          enabled: false,
         ),
         const SizedBox(height: 16),
         _buildFormField(
@@ -265,6 +429,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         focusedBorder: const OutlineInputBorder(
           borderSide: BorderSide(color: Color(0xFF2E7D32), width: 2),
         ),
+        enabled: enabled,
       ),
     );
   }
@@ -275,7 +440,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         children: [
           Expanded(
             child: OutlinedButton(
-              onPressed: _toggleEditing,
+              onPressed: _isLoading ? null : _toggleEditing,
               style: OutlinedButton.styleFrom(
                 foregroundColor: const Color(0xFF2E7D32),
                 side: const BorderSide(color: Color(0xFF2E7D32)),

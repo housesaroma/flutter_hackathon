@@ -44,28 +44,19 @@ class _RegisterScreenState extends State<RegisterScreen> {
     try {
       final authService = Provider.of<AuthService>(context, listen: false);
 
-      final isDeputy = _selectedRole == 'deputy';
-
-      String? deputyId;
-      if (!isDeputy) {
-        if (_selectedDeputyId == null) {
-          throw Exception('Для сотрудника необходимо выбрать депутата');
-        }
-        deputyId = _selectedDeputyId;
-      }
-
+      // Для сотрудника deputyId будет null при регистрации
       await authService.signUp(
         email: _emailController.text.trim(),
         password: _passwordController.text.trim(),
         name: _nameController.text.trim(),
-        isDeputy: isDeputy,
+        isDeputy: _selectedRole == 'deputy',
         phone: _phoneController.text.trim().isEmpty
             ? null
             : _phoneController.text.trim(),
         department: _departmentController.text.trim().isEmpty
             ? null
             : _departmentController.text.trim(),
-        deputyId: deputyId,
+        deputyId: null, // Всегда null при регистрации
       );
 
       if (mounted) {
@@ -89,12 +80,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        title: const Text('Регистрация'),
-        backgroundColor: const Color(0xFF2E7D32),
-        foregroundColor: Colors.white,
-      ),
+      // ... остальная часть без _buildDeputyDropdown()
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24),
@@ -107,13 +93,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 const SizedBox(height: 20),
                 _buildRoleDropdown(),
                 const SizedBox(height: 20),
-
-                // Поле выбора депутата (только для сотрудников)
-                if (_selectedRole == 'staff') ...[
-                  _buildDeputyDropdown(),
-                  const SizedBox(height: 20),
-                ],
-
                 _buildEmailField(),
                 const SizedBox(height: 20),
                 _buildPhoneField(),
@@ -175,54 +154,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
           return 'Выберите роль';
         }
         return null;
-      },
-    );
-  }
-
-  Widget _buildDeputyDropdown() {
-    return StreamBuilder<List<AppUser>>(
-      stream: _eventService.getDeputies(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const CircularProgressIndicator();
-        }
-
-        if (snapshot.hasError) {
-          return Text('Ошибка загрузки: ${snapshot.error}');
-        }
-
-        if (!snapshot.hasData || snapshot.data!.isEmpty) {
-          return const Text('Депутаты не найдены');
-        }
-
-        final deputies = snapshot.data!;
-
-        return DropdownButtonFormField<String>(
-          value: _selectedDeputyId,
-          decoration: InputDecoration(
-            labelText: 'Депутат',
-            prefixIcon: const Icon(Icons.person),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-            hintText: 'Выберите депутата',
-          ),
-          items: deputies.map((deputy) {
-            return DropdownMenuItem<String>(
-              value: deputy.uid,
-              child: Text(deputy.name),
-            );
-          }).toList(),
-          onChanged: (value) {
-            setState(() {
-              _selectedDeputyId = value;
-            });
-          },
-          validator: (value) {
-            if (value == null || value.isEmpty) {
-              return 'Выберите депутата';
-            }
-            return null;
-          },
-        );
       },
     );
   }
