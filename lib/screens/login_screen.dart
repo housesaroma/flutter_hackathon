@@ -31,30 +31,27 @@ class _LoginScreenState extends State<LoginScreen> {
 
       print('✅ Login successful in UI');
 
-      // Показываем успешное сообщение
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Вход выполнен успешно!'),
-          backgroundColor: Colors.green,
-        ),
-      );
-
-      // Навигация произойдет автоматически через перерисовку AuthWrapper
+      // Успешный вход обрабатывается автоматически через AuthWrapper
+      // Не показываем сообщение об успехе, так как произойдет переход на главный экран
     } catch (e) {
       print('❌ Login error in UI: $e');
 
-      String errorMessage = e.toString();
-      if (errorMessage.contains('FirebaseAuthException')) {
-        errorMessage = 'Ошибка авторизации. Проверьте email и пароль.';
+      // Показываем понятное сообщение об ошибке без сброса полей
+      String errorMessage = e.toString().replaceAll('Exception: ', '');
+
+      // Улучшаем сообщения об ошибках для пользователя
+      if (errorMessage.contains('user-not-found') ||
+          errorMessage.contains('wrong-password')) {
+        errorMessage = 'Неверный email или пароль';
+      } else if (errorMessage.contains('network-request-failed')) {
+        errorMessage = 'Ошибка сети. Проверьте подключение к интернету';
+      } else if (errorMessage.contains('too-many-requests')) {
+        errorMessage = 'Слишком много попыток входа. Попробуйте позже';
+      } else if (errorMessage.contains('invalid-email')) {
+        errorMessage = 'Неверный формат email';
       }
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(errorMessage),
-          backgroundColor: Colors.red,
-          duration: const Duration(seconds: 5),
-        ),
-      );
+      _showErrorSnackBar(errorMessage);
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
@@ -62,10 +59,52 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
+  void _showErrorSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(Icons.error_outline, color: Colors.white, size: 20),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(message, style: const TextStyle(color: Colors.white)),
+            ),
+          ],
+        ),
+        backgroundColor: Colors.red,
+        duration: const Duration(seconds: 5),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        action: SnackBarAction(
+          label: 'Закрыть',
+          textColor: Colors.white,
+          onPressed: () {
+            ScaffoldMessenger.of(context).hideCurrentSnackBar();
+          },
+        ),
+      ),
+    );
+  }
+
   void _navigateToRegister() {
     Navigator.push(
       context,
       MaterialPageRoute(builder: (context) => const RegisterScreen()),
+    );
+  }
+
+  void _fillDemoCredentials() {
+    setState(() {
+      _emailController.text = 'test@egd.ru';
+      _passwordController.text = 'password123';
+    });
+    // Показываем подсказку
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Демо-данные заполнены. Нажмите "Войти"'),
+        backgroundColor: Color(0xFF2E7D32),
+        duration: Duration(seconds: 2),
+      ),
     );
   }
 
@@ -113,6 +152,13 @@ class _LoginScreenState extends State<LoginScreen> {
             decoration: BoxDecoration(
               color: const Color(0xFF2E7D32).withOpacity(0.1),
               borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.grey.withOpacity(0.1),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
             ),
             child: const Icon(
               Icons.account_balance,
@@ -174,12 +220,21 @@ class _LoginScreenState extends State<LoginScreen> {
               borderRadius: BorderRadius.circular(12),
               borderSide: const BorderSide(color: Color(0xFF2E7D32), width: 2),
             ),
+            errorBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: Colors.red),
+            ),
+            focusedErrorBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: Colors.red, width: 2),
+            ),
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 16,
               vertical: 16,
             ),
           ),
           keyboardType: TextInputType.emailAddress,
+          textInputAction: TextInputAction.next,
           validator: (value) {
             if (value == null || value.isEmpty) {
               return 'Введите email';
@@ -231,12 +286,22 @@ class _LoginScreenState extends State<LoginScreen> {
               borderRadius: BorderRadius.circular(12),
               borderSide: const BorderSide(color: Color(0xFF2E7D32), width: 2),
             ),
+            errorBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: Colors.red),
+            ),
+            focusedErrorBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: Colors.red, width: 2),
+            ),
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 16,
               vertical: 16,
             ),
           ),
           obscureText: _obscurePassword,
+          textInputAction: TextInputAction.done,
+          onFieldSubmitted: (_) => _login(),
           validator: (value) {
             if (value == null || value.isEmpty) {
               return 'Введите пароль';
@@ -256,20 +321,32 @@ class _LoginScreenState extends State<LoginScreen> {
       alignment: Alignment.centerRight,
       child: TextButton(
         onPressed: () {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Функция восстановления пароля в разработке'),
-              backgroundColor: Color(0xFF2E7D32),
-            ),
-          );
+          _showForgotPasswordDialog();
         },
-        child: Text(
+        style: TextButton.styleFrom(foregroundColor: const Color(0xFF2E7D32)),
+        child: const Text(
           'Забыли пароль?',
-          style: TextStyle(
-            color: const Color(0xFF2E7D32),
-            fontWeight: FontWeight.w500,
-          ),
+          style: TextStyle(fontWeight: FontWeight.w500),
         ),
+      ),
+    );
+  }
+
+  void _showForgotPasswordDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Восстановление пароля'),
+        content: const Text(
+          'Для восстановления пароля обратитесь к системному администратору Екатеринбургской Городской Думы.',
+          style: TextStyle(fontSize: 14),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Понятно'),
+          ),
+        ],
       ),
     );
   }

@@ -1,61 +1,57 @@
 class AppUser {
-  final String id;
+  final String uid;
   final String email;
   final String name;
-  final String role; // 'deputy' или 'staff'
+  final String? phone;
+  final String? department;
+  final bool isDeputy;
+  final bool isAdmin;
+  final String? deputyId;
   final DateTime createdAt;
-  final DateTime? lastLogin;
-  final bool isActive;
+  final DateTime? updatedAt;
 
   AppUser({
-    required this.id,
+    required this.uid,
     required this.email,
     required this.name,
-    required this.role,
+    this.phone,
+    this.department,
+    required this.isDeputy,
+    this.isAdmin = false,
+    this.deputyId,
     required this.createdAt,
-    this.lastLogin,
-    this.isActive = true,
+    this.updatedAt,
   });
-
-  Map<String, dynamic> toMap() {
-    return {
-      'id': id,
-      'email': email,
-      'name': name,
-      'role': role,
-      'createdAt': createdAt.millisecondsSinceEpoch,
-      'lastLogin': DateTime.now().millisecondsSinceEpoch,
-      'isActive': isActive,
-      'updatedAt': DateTime.now().millisecondsSinceEpoch,
-    };
-  }
 
   factory AppUser.fromMap(Map<String, dynamic> map) {
     return AppUser(
-      id: map['id'] ?? '',
+      uid: map['uid'] ?? '',
       email: map['email'] ?? '',
-      name: map['name'] ?? 'Пользователь',
-      role: map['role'] ?? 'staff',
-      createdAt: DateTime.fromMillisecondsSinceEpoch(map['createdAt'] ?? 0),
-      lastLogin: map['lastLogin'] != null
-          ? DateTime.fromMillisecondsSinceEpoch(map['lastLogin'])
+      name: map['name'] ?? '',
+      phone: map['phone'],
+      department: map['department'],
+      isDeputy: map['isDeputy'] ?? false,
+      isAdmin: map['isAdmin'] ?? false,
+      deputyId: map['deputyId'],
+      createdAt: DateTime.fromMillisecondsSinceEpoch(map['createdAt']),
+      updatedAt: map['updatedAt'] != null
+          ? DateTime.fromMillisecondsSinceEpoch(map['updatedAt'])
           : null,
-      isActive: map['isActive'] ?? true,
     );
   }
 
-  // Проверка прав доступа
-  bool get isDeputy => role == 'deputy';
-  bool get isStaff => role == 'staff';
-
-  // Может ли пользователь редактировать расписание
-  bool get canEditSchedule => isDeputy;
-
-  // Может ли пользователь управлять документами
-  bool get canManageDocuments => isDeputy || isStaff;
-
-  @override
-  String toString() {
-    return 'AppUser{id: $id, email: $email, name: $name, role: $role}';
+  Map<String, dynamic> toMap() {
+    return {
+      'uid': uid,
+      'email': email,
+      'name': name,
+      'phone': phone,
+      'department': department,
+      'isDeputy': isDeputy,
+      'isAdmin': isAdmin,
+      'deputyId': deputyId,
+      'createdAt': createdAt.millisecondsSinceEpoch,
+      'updatedAt': updatedAt?.millisecondsSinceEpoch,
+    };
   }
 }

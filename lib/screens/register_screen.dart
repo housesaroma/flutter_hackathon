@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_application_1/models/user_model.dart';
 import 'package:provider/provider.dart';
-
 import '../services/auth_service.dart';
+import '../services/event_service.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -16,8 +17,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _passwordController = TextEditingController();
   final _nameController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
+  final _phoneController = TextEditingController();
+  final _departmentController = TextEditingController();
+
+  final EventService _eventService = EventService();
+
   String _selectedRole = 'staff';
   bool _isLoading = false;
+  String? _selectedDeputyId;
 
   Future<void> _register() async {
     if (!_formKey.currentState!.validate()) return;
@@ -36,14 +43,31 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
     try {
       final authService = Provider.of<AuthService>(context, listen: false);
+
+      final isDeputy = _selectedRole == 'deputy';
+
+      String? deputyId;
+      if (!isDeputy) {
+        if (_selectedDeputyId == null) {
+          throw Exception('Для сотрудника необходимо выбрать депутата');
+        }
+        deputyId = _selectedDeputyId;
+      }
+
       await authService.signUp(
-        _emailController.text.trim(),
-        _passwordController.text.trim(),
-        _nameController.text.trim(),
-        _selectedRole,
+        email: _emailController.text.trim(),
+        password: _passwordController.text.trim(),
+        name: _nameController.text.trim(),
+        isDeputy: isDeputy,
+        phone: _phoneController.text.trim().isEmpty
+            ? null
+            : _phoneController.text.trim(),
+        department: _departmentController.text.trim().isEmpty
+            ? null
+            : _departmentController.text.trim(),
+        deputyId: deputyId,
       );
 
-      // После успешной регистрации возвращаемся на экран входа
       if (mounted) {
         Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
@@ -83,7 +107,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 const SizedBox(height: 20),
                 _buildRoleDropdown(),
                 const SizedBox(height: 20),
+
+                // Поле выбора депутата (только для сотрудников)
+                if (_selectedRole == 'staff') ...[
+                  _buildDeputyDropdown(),
+                  const SizedBox(height: 20),
+                ],
+
                 _buildEmailField(),
+                const SizedBox(height: 20),
+                _buildPhoneField(),
+                const SizedBox(height: 20),
+                _buildDepartmentField(),
                 const SizedBox(height: 20),
                 _buildPasswordField(),
                 const SizedBox(height: 20),
@@ -130,6 +165,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
       onChanged: (value) {
         setState(() {
           _selectedRole = value!;
+          if (_selectedRole == 'deputy') {
+            _selectedDeputyId = null;
+          }
         });
       },
       validator: (value) {
@@ -137,6 +175,54 @@ class _RegisterScreenState extends State<RegisterScreen> {
           return 'Выберите роль';
         }
         return null;
+      },
+    );
+  }
+
+  Widget _buildDeputyDropdown() {
+    return StreamBuilder<List<AppUser>>(
+      stream: _eventService.getDeputies(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const CircularProgressIndicator();
+        }
+
+        if (snapshot.hasError) {
+          return Text('Ошибка загрузки: ${snapshot.error}');
+        }
+
+        if (!snapshot.hasData || snapshot.data!.isEmpty) {
+          return const Text('Депутаты не найдены');
+        }
+
+        final deputies = snapshot.data!;
+
+        return DropdownButtonFormField<String>(
+          value: _selectedDeputyId,
+          decoration: InputDecoration(
+            labelText: 'Депутат',
+            prefixIcon: const Icon(Icons.person),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+            hintText: 'Выберите депутата',
+          ),
+          items: deputies.map((deputy) {
+            return DropdownMenuItem<String>(
+              value: deputy.uid,
+              child: Text(deputy.name),
+            );
+          }).toList(),
+          onChanged: (value) {
+            setState(() {
+              _selectedDeputyId = value;
+            });
+          },
+          validator: (value) {
+            if (value == null || value.isEmpty) {
+              return 'Выберите депутата';
+            }
+            return null;
+          },
+        );
       },
     );
   }
@@ -159,6 +245,29 @@ class _RegisterScreenState extends State<RegisterScreen> {
         }
         return null;
       },
+    );
+  }
+
+  Widget _buildPhoneField() {
+    return TextFormField(
+      controller: _phoneController,
+      decoration: InputDecoration(
+        labelText: 'Телефон (необязательно)',
+        prefixIcon: const Icon(Icons.phone),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+      keyboardType: TextInputType.phone,
+    );
+  }
+
+  Widget _buildDepartmentField() {
+    return TextFormField(
+      controller: _departmentController,
+      decoration: InputDecoration(
+        labelText: 'Отдел/комиссия (необязательно)',
+        prefixIcon: const Icon(Icons.work_outline),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+      ),
     );
   }
 
@@ -195,6 +304,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
       validator: (value) {
         if (value == null || value.isEmpty) {
           return 'Подтвердите пароль';
+        }
+        if (value != _passwordController.text) {
+          return 'Пароли не совпадают';
         }
         return null;
       },
@@ -237,6 +349,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
     _passwordController.dispose();
     _nameController.dispose();
     _confirmPasswordController.dispose();
+    _phoneController.dispose();
+    _departmentController.dispose();
     super.dispose();
   }
 }

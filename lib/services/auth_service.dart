@@ -13,7 +13,6 @@ class AuthService with ChangeNotifier {
   AppUser? get currentUser => _currentUser;
   bool get isLoading => _isLoading;
 
-  // Инициализация при запуске приложения
   Future<void> initialize() async {
     _isLoading = true;
     notifyListeners();
@@ -52,7 +51,7 @@ class AuthService with ChangeNotifier {
       return _currentUser;
     } on FirebaseAuthException catch (e) {
       print('❌ Firebase auth error: ${e.code} - ${e.message}');
-      throw _handleAuthError(e);
+      throw Exception(_handleAuthError(e));
     } catch (e) {
       print('❌ General auth error: $e');
       throw Exception('Ошибка входа: $e');
@@ -62,12 +61,16 @@ class AuthService with ChangeNotifier {
     }
   }
 
-  Future<AppUser?> signUp(
-    String email,
-    String password,
-    String name,
-    String role,
-  ) async {
+  Future<AppUser?> signUp({
+    required String email,
+    required String password,
+    required String name,
+    required bool isDeputy,
+    bool isAdmin = false,
+    String? deputyId,
+    String? phone,
+    String? department,
+  }) async {
     _isLoading = true;
     notifyListeners();
 
@@ -80,26 +83,25 @@ class AuthService with ChangeNotifier {
       );
 
       final user = AppUser(
-        id: userCredential.user!.uid,
+        uid: userCredential.user!.uid,
         email: email.trim(),
         name: name.trim(),
-        role: role,
+        phone: phone,
+        department: department,
+        isDeputy: isDeputy,
+        isAdmin: isAdmin,
+        deputyId: deputyId,
         createdAt: DateTime.now(),
       );
 
-      // Сохраняем в Firestore
-      try {
-        await _firestore.collection('users').doc(user.id).set(user.toMap());
-        print('✅ User saved to Firestore: $email');
-      } catch (e) {
-        print('⚠️ Could not save user to Firestore: $e');
-      }
+      await _firestore.collection('users').doc(user.uid).set(user.toMap());
+      print('✅ User saved to Firestore: $email');
 
       _currentUser = user;
       return user;
     } on FirebaseAuthException catch (e) {
       print('❌ Firebase registration error: ${e.code} - ${e.message}');
-      throw _handleAuthError(e);
+      throw Exception(_handleAuthError(e));
     } catch (e) {
       print('❌ General registration error: $e');
       throw Exception('Ошибка регистрации: $e');
@@ -109,7 +111,7 @@ class AuthService with ChangeNotifier {
     }
   }
 
-  Future<AppUser?> _getUserData(User firebaseUser) async {
+  Future<AppUser> _getUserData(User firebaseUser) async {
     try {
       final doc = await _firestore
           .collection('users')
@@ -119,35 +121,29 @@ class AuthService with ChangeNotifier {
         print('✅ User data loaded from Firestore');
         return AppUser.fromMap(doc.data()!);
       } else {
-        // Создаем запись в Firestore если её нет
         final newUser = AppUser(
-          id: firebaseUser.uid,
+          uid: firebaseUser.uid,
           email: firebaseUser.email ?? '',
-          name: firebaseUser.displayName ?? 'Пользователь ЕГД',
-          role: 'staff',
+          name: firebaseUser.displayName ?? 'Пользователь',
+          isDeputy: false,
           createdAt: DateTime.now(),
         );
 
-        try {
-          await _firestore
-              .collection('users')
-              .doc(newUser.id)
-              .set(newUser.toMap());
-          print('✅ New user created in Firestore');
-        } catch (e) {
-          print('⚠️ Could not create user in Firestore: $e');
-        }
+        await _firestore
+            .collection('users')
+            .doc(newUser.uid)
+            .set(newUser.toMap());
+        print('✅ New user created in Firestore');
 
         return newUser;
       }
     } catch (e) {
       print('❌ Error getting user data: $e');
-      // Возвращаем базового пользователя если Firestore недоступен
       return AppUser(
-        id: firebaseUser.uid,
+        uid: firebaseUser.uid,
         email: firebaseUser.email ?? '',
-        name: 'Пользователь ЕГД',
-        role: 'staff',
+        name: 'Пользователь',
+        isDeputy: false,
         createdAt: DateTime.now(),
       );
     }
