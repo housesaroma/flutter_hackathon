@@ -200,19 +200,8 @@ lib/
 
 
 test/
-├── integrations_tests/
-│   └── app_test.dart
 └── widget_tests /
-    ├── calendar_screen_test.dart
-    ├── create_event_screen_test.dart
-    ├── events_screen_test.dart
-    ├── login_screen_test.dart
-    ├── main_screen_test.dart
-    ├── profile_screen_test.dart
-    ├── register_screen_test.dart
-    ├── splash_screen_test.dart
-    ├── test_helpers.dart
-    └── widget_test.dart
+    └── login_screen_test.dart
 ```
 
 ## 🔧 Архитектура
