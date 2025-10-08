@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../services/event_service.dart';
-import '../services/auth_service.dart';
+
 import '../models/event_model.dart';
 import '../models/user_model.dart';
+import '../services/auth_service.dart';
+import '../services/event_service.dart';
+import '../services/file_service.dart';
 
 class CreateEventScreen extends StatefulWidget {
   final DateTime selectedDate;
@@ -17,6 +19,7 @@ class CreateEventScreen extends StatefulWidget {
 class _CreateEventScreenState extends State<CreateEventScreen> {
   final _formKey = GlobalKey<FormState>();
   final EventService _eventService = EventService();
+  final FileService _fileService = FileService();
 
   late TextEditingController _titleController;
   late TextEditingController _descriptionController;
@@ -28,6 +31,10 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
   EventType _selectedType = EventType.meeting;
   String? _selectedDeputyId;
   bool _isLoading = false;
+
+  // Файлы
+  List<EventAttachment> _attachments = [];
+  bool _isAddingFiles = false;
 
   @override
   void initState() {
@@ -65,6 +72,39 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
         _selectedTime = picked;
       });
     }
+  }
+
+  // Добавление файлов
+  Future<void> _addFiles() async {
+    setState(() => _isAddingFiles = true);
+
+    try {
+      final files = await _fileService.pickFiles();
+      if (files != null) {
+        for (final file in files) {
+          final attachment = await _fileService.createAttachment(file);
+          setState(() {
+            _attachments.add(attachment);
+          });
+        }
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Ошибка добавления файлов: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      setState(() => _isAddingFiles = false);
+    }
+  }
+
+  // Удаление файла
+  void _removeAttachment(int index) {
+    setState(() {
+      _attachments.removeAt(index);
+    });
   }
 
   Future<void> _createEvent() async {
@@ -108,6 +148,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
         deputyId: deputyId,
         type: _selectedType,
         notes: _notesController.text.trim(),
+        attachments: _attachments,
       );
 
       ScaffoldMessenger.of(context).showSnackBar(
@@ -204,6 +245,10 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
               ),
               const SizedBox(height: 16),
 
+              // Секция прикрепления файлов
+              _buildAttachmentsSection(),
+              const SizedBox(height: 16),
+
               _buildFormField(
                 label: 'Дополнительные заметки (необязательно)',
                 controller: _notesController,
@@ -220,6 +265,81 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
     );
   }
 
+  Widget _buildAttachmentsSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Прикрепленные файлы',
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: Color(0xFF2E7D32),
+          ),
+        ),
+        const SizedBox(height: 8),
+
+        // Кнопка добавления файлов
+        OutlinedButton.icon(
+          onPressed: _isAddingFiles ? null : _addFiles,
+          style: OutlinedButton.styleFrom(
+            foregroundColor: const Color(0xFF2E7D32),
+            side: const BorderSide(color: Color(0xFF2E7D32)),
+            minimumSize: const Size(double.infinity, 50),
+          ),
+          icon: _isAddingFiles
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(Icons.attach_file),
+          label: _isAddingFiles
+              ? const Text('Добавление файлов...')
+              : const Text('Добавить файлы (JPG, PNG, PDF, TXT)'),
+        ),
+
+        // Список прикрепленных файлов
+        if (_attachments.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          ..._attachments.asMap().entries.map((entry) {
+            final index = entry.key;
+            final attachment = entry.value;
+            return _buildAttachmentItem(attachment, index);
+          }).toList(),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildAttachmentItem(EventAttachment attachment, int index) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      child: ListTile(
+        leading: Text(
+          attachment.fileIcon,
+          style: const TextStyle(fontSize: 20),
+        ),
+        title: Text(
+          attachment.name,
+          style: const TextStyle(fontSize: 14),
+          overflow: TextOverflow.ellipsis,
+        ),
+        subtitle: Text(
+          _fileService.getFileSizeString(attachment.size),
+          style: const TextStyle(fontSize: 12),
+        ),
+        trailing: IconButton(
+          icon: const Icon(Icons.delete, color: Colors.red, size: 20),
+          onPressed: () => _removeAttachment(index),
+        ),
+        dense: true,
+      ),
+    );
+  }
+
+  // Остальные методы (_buildDeputySelector, _buildTypeSelector, и т.д.)
+  // остаются без изменений из вашего кода
   Widget _buildDeputySelector() {
     return StreamBuilder<List<AppUser>>(
       stream: _eventService.getDeputies(),

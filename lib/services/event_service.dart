@@ -153,6 +153,7 @@ class EventService {
     required String deputyId,
     EventType type = EventType.meeting,
     String? notes,
+    List<EventAttachment> attachments = const [],
   }) async {
     final user = _auth.currentUser;
     if (user == null) throw Exception('Требуется авторизация');
@@ -191,6 +192,7 @@ class EventService {
       createdAt: DateTime.now(),
       updatedAt: DateTime.now(),
       notes: notes,
+      attachments: attachments,
     );
 
     await _firestore.collection('events').doc(event.id).set(event.toMap());

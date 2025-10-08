@@ -44,6 +44,9 @@ dependencies:
   integration_test:
     sdk: flutter
   mockito: ^5.5.1
+  file_picker: ^10.3.3
+  image_picker: ^1.2.0
+  mime_type: ^1.0.1
 
 dev_dependencies:
   flutter_test:
