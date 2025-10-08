@@ -212,7 +212,7 @@ class EventService {
         .update(updatedEvent.toMap());
   }
 
-  // Удалить событие
+  // Удалить событие - ИСПРАВЛЕННАЯ ВЕРСИЯ
   Future<void> deleteEvent(String eventId) async {
     final user = _auth.currentUser;
     if (user == null) throw Exception('Требуется авторизация');
@@ -226,19 +226,27 @@ class EventService {
     final event = CalendarEvent.fromMap(eventData, id: eventDoc.id);
     final userType = await _getCurrentUserType();
     final isAdmin = userType['isAdmin'];
+    final isDeputy = userType['isDeputy'];
+    final userDeputyId = userType['deputyId'];
 
+    // Проверка прав доступа
     if (!isAdmin) {
-      final userDeputyId = userType['isDeputy']
-          ? user.uid
-          : userType['deputyId'];
-      if (event.deputyId != userDeputyId) {
-        throw Exception('Нет прав для удаления этого мероприятия');
-      }
-      if (event.createdBy != user.uid) {
-        throw Exception('Можно удалять только свои мероприятия');
+      if (isDeputy) {
+        // Депутат может удалять только свои мероприятия
+        if (event.deputyId != user.uid) {
+          throw Exception('Депутат может удалять только свои мероприятия');
+        }
+      } else {
+        // Помощник может удалять мероприятия своего депутата
+        if (event.deputyId != userDeputyId) {
+          throw Exception(
+            'Помощник может удалять только мероприятия своего депутата',
+          );
+        }
       }
     }
 
+    // Администраторы, депутаты и помощники (с правами) могут удалять мероприятия
     await _firestore.collection('events').doc(eventId).delete();
   }
 
