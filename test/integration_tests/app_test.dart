@@ -1,4 +1,5 @@
 // integration_test/app_test.dart
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:flutter_application_1/main.dart' as app;
@@ -7,7 +8,9 @@ void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
   group('End-to-End Test', () {
-    testWidgets('Login -> Navigate -> Create Event -> Logout', (WidgetTester tester) async {
+    testWidgets('Login -> Navigate -> Create Event -> Logout', (
+      WidgetTester tester,
+    ) async {
       app.main();
       await tester.pumpAndSettle();
 
@@ -45,7 +48,10 @@ void main() {
       expect(find.text('Создать мероприятие'), findsOneWidget);
 
       await tester.enterText(find.byType(TextFormField).at(0), 'E2E Event');
-      await tester.enterText(find.byType(TextFormField).at(1), 'E2E Description');
+      await tester.enterText(
+        find.byType(TextFormField).at(1),
+        'E2E Description',
+      );
       await tester.enterText(find.byType(TextFormField).at(2), 'E2E Location');
       await tester.tap(find.text('Создать'));
       await tester.pumpAndSettle();
@@ -66,15 +72,3 @@ void main() {
     });
   });
 }
-
-
-// pubspec.yaml additions:
-//
-dev_dependencies:
-//  integration_test:
-//    sdk: flutter
-//  flutter_test:
-//    sdk: flutter
-
-// Для запуска:
-// flutter test integration_test/app_test.dart
