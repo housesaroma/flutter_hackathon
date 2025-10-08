@@ -167,6 +167,8 @@ class CalendarEvent {
     DateTime? updatedAt,
     String? notes,
     List<EventAttachment>? attachments,
+    bool? isCancelled,
+    String? cancellationReason,
   }) {
     return CalendarEvent(
       id: id ?? this.id,

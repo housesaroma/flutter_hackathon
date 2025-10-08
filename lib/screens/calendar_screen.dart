@@ -1,10 +1,17 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_application_1/models/event_attendance.dart';
+import 'package:flutter_application_1/models/user_model.dart';
+import 'package:flutter_application_1/screens/admin_attendance_screen.dart';
 import 'package:flutter_application_1/screens/file_preview_screen.dart';
+import 'package:flutter_application_1/services/attendance_service.dart';
 import 'package:flutter_application_1/services/file_service.dart';
-import 'package:table_calendar/table_calendar.dart';
 import 'package:intl/intl.dart';
-import '../services/event_service.dart';
+import 'package:table_calendar/table_calendar.dart';
+
 import '../models/event_model.dart';
+import '../services/event_service.dart';
 import 'create_event_screen.dart';
 
 class CalendarScreen extends StatefulWidget {
@@ -19,12 +26,34 @@ class _CalendarScreenState extends State<CalendarScreen> {
   DateTime _focusedDay = DateTime.now();
   DateTime? _selectedDay;
   final EventService _eventService = EventService();
+  final AttendanceService _attendanceService = AttendanceService();
   final FileService _fileService = FileService();
+  User? get currentUser => FirebaseAuth.instance.currentUser;
+
+  bool get isDeputy => currentUser != null && _userData?.isDeputy == true;
+  bool get isAdmin => currentUser != null && _userData?.isAdmin == true;
+
+  AppUser? _userData;
 
   @override
   void initState() {
     super.initState();
     _selectedDay = _focusedDay;
+    _loadUserData();
+  }
+
+  Future<void> _loadUserData() async {
+    if (currentUser != null) {
+      final userDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(currentUser!.uid)
+          .get();
+      if (userDoc.exists) {
+        setState(() {
+          _userData = AppUser.fromMap(userDoc.data()!);
+        });
+      }
+    }
   }
 
   @override
@@ -167,7 +196,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
           width: 8,
           height: 40,
           decoration: BoxDecoration(
-            color: event.type.color,
+            color: event.type.color, // Убрана проверка на isCancelled
             borderRadius: BorderRadius.circular(4),
           ),
         ),
@@ -183,16 +212,48 @@ class _CalendarScreenState extends State<CalendarScreen> {
             ),
             if (event.location.isNotEmpty)
               Text(event.location, style: const TextStyle(fontSize: 12)),
+            // Статус явки показываем только депутату
+            if (isDeputy)
+              StreamBuilder<Attendance?>(
+                stream: _attendanceService.getAttendanceForEvent(
+                  event.id,
+                  currentUser!.uid,
+                ),
+                builder: (context, snapshot) {
+                  if (snapshot.hasData && snapshot.data != null) {
+                    final attendance = snapshot.data!;
+                    return Chip(
+                      label: Text(
+                        attendance.status.displayName,
+                        style: const TextStyle(
+                          fontSize: 10,
+                          color: Colors.white,
+                        ),
+                      ),
+                      backgroundColor: attendance.status.color,
+                      visualDensity: VisualDensity.compact,
+                    );
+                  }
+                  return const SizedBox();
+                },
+              ),
           ],
         ),
-        trailing: Chip(
-          label: Text(
-            event.type.displayName,
-            style: const TextStyle(color: Colors.white, fontSize: 10),
-          ),
-          backgroundColor: event.type.color,
-        ),
-        onTap: () => _showEventDetails(event),
+        onTap: () => _showEventDetails(event), // Убрана проверка на isCancelled
+      ),
+    );
+  }
+
+  // Добавьте этот отсутствующий метод
+  Widget _buildDetailRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('$label: ', style: const TextStyle(fontWeight: FontWeight.bold)),
+          Expanded(child: Text(value)),
+        ],
       ),
     );
   }
@@ -215,6 +276,21 @@ class _CalendarScreenState extends State<CalendarScreen> {
   }
 
   void _showEventDetails(CalendarEvent event) {
+    if (isDeputy) {
+      // Для депутата - открываем экран подтверждения явки
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => AttendanceConfirmationScreen(event: event),
+        ),
+      );
+    } else {
+      // Для других пользователей - показываем старый диалог
+      _showEventDetailsDialog(event);
+    }
+  }
+
+  void _showEventDetailsDialog(CalendarEvent event) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -272,66 +348,6 @@ class _CalendarScreenState extends State<CalendarScreen> {
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: const Text('Закрыть'),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              _deleteEvent(event);
-            },
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('Удалить'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDetailRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('$label: ', style: const TextStyle(fontWeight: FontWeight.bold)),
-          Expanded(child: Text(value)),
-        ],
-      ),
-    );
-  }
-
-  void _deleteEvent(CalendarEvent event) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Удалить мероприятие?'),
-        content: Text('Вы уверены, что хотите удалить "${event.title}"?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Отмена'),
-          ),
-          TextButton(
-            onPressed: () async {
-              Navigator.pop(context);
-              try {
-                await _eventService.deleteEvent(event.id);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Мероприятие удалено'),
-                    backgroundColor: Colors.green,
-                  ),
-                );
-              } catch (e) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('Ошибка удаления: $e'),
-                    backgroundColor: Colors.red,
-                  ),
-                );
-              }
-            },
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('Удалить'),
           ),
         ],
       ),
