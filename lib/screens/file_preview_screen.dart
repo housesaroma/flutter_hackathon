@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:convert';
+import 'dart:io';
+import 'package:path_provider/path_provider.dart';
 import '../models/event_model.dart';
 import '../services/file_service.dart';
 
@@ -30,11 +32,95 @@ class FilePreviewScreen extends StatelessWidget {
       return _buildImagePreview();
     } else if (attachment.isText) {
       return _buildTextPreview();
+    } else if (attachment.isPdf) {
+      return _buildPdfInfo(context);
     } else {
       return _buildFileInfo(context);
     }
   }
 
+  Widget _buildPdfInfo(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Text('📄', style: TextStyle(fontSize: 64)),
+            const SizedBox(height: 16),
+            Text(
+              attachment.name,
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              fileService.getFileSizeString(attachment.size),
+              style: const TextStyle(fontSize: 14, color: Colors.grey),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'PDF документ',
+              style: TextStyle(fontSize: 14, color: Colors.grey),
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton.icon(
+              onPressed: () => _downloadPdf(context),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF2E7D32),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 12,
+                ),
+              ),
+              icon: const Icon(Icons.download),
+              label: const Text('Скачать PDF в Downloads'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _downloadPdf(BuildContext context) async {
+    try {
+      final bytes = fileService.getFileBytes(attachment.fileData);
+      if (bytes == null) {
+        throw Exception('Не удалось получить данные файла');
+      }
+
+      // Получаем папку Downloads
+      final directory = await getDownloadsDirectory();
+      if (directory == null) {
+        throw Exception('Не удалось получить доступ к папке Downloads');
+      }
+
+      // Создаем файл в папке Downloads
+      final file = File('${directory.path}/${attachment.name}');
+      await file.writeAsBytes(bytes);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('PDF сохранен в: ${file.path}'),
+          duration: const Duration(seconds: 4),
+          action: SnackBarAction(label: 'OK', onPressed: () {}),
+        ),
+      );
+
+      print('Файл сохранен: ${file.path}');
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Ошибка скачивания: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      print('Ошибка: $e');
+    }
+  }
+
+  // Остальные методы без изменений
   Widget _buildImagePreview() {
     final bytes = fileService.getFileBytes(attachment.fileData);
 
@@ -55,7 +141,6 @@ class FilePreviewScreen extends StatelessWidget {
 
     String textContent;
     try {
-      // Пробуем разные кодировки
       textContent = _decodeText(bytes);
     } catch (e) {
       textContent = 'Ошибка декодирования файла: $e';
@@ -73,19 +158,15 @@ class FilePreviewScreen extends StatelessWidget {
   }
 
   String _decodeText(List<int> bytes) {
-    // Пробуем UTF-8 (самая распространенная)
     try {
       return utf8.decode(bytes);
     } catch (e) {
-      // Если UTF-8 не сработал, пробуем Windows-1251 (кириллица)
       try {
         return _decodeWindows1251(bytes);
       } catch (e) {
-        // Если и это не сработало, пробуем Latin-1
         try {
           return latin1.decode(bytes);
         } catch (e) {
-          // Если ничего не помогло, возвращаем как есть
           return String.fromCharCodes(bytes);
         }
       }
@@ -93,7 +174,6 @@ class FilePreviewScreen extends StatelessWidget {
   }
 
   String _decodeWindows1251(List<int> bytes) {
-    // Таблица преобразования Windows-1251 в Unicode
     const windows1251ToUnicode = [
       0x0402,
       0x0403,
@@ -228,15 +308,12 @@ class FilePreviewScreen extends StatelessWidget {
     final result = StringBuffer();
     for (int byte in bytes) {
       if (byte >= 0x00 && byte <= 0x7F) {
-        // ASCII символы
         result.writeCharCode(byte);
       } else if (byte >= 0xC0 && byte <= 0xFF) {
-        // Кириллица в Windows-1251
         final unicodeChar = windows1251ToUnicode[byte - 0xC0];
         result.writeCharCode(unicodeChar);
       } else {
-        // Неизвестный символ
-        result.writeCharCode(0xFFFD); // Символ замены
+        result.writeCharCode(0xFFFD);
       }
     }
     return result.toString();
