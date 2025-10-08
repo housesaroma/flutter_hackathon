@@ -12,6 +12,61 @@ enum EventType {
   const EventType(this.displayName, this.color);
 }
 
+class EventAttachment {
+  final String id;
+  final String name;
+  final int size;
+  final String mimeType;
+  final DateTime uploadedAt;
+  final String fileData; // Base64 данные файла
+  final String fileExtension;
+
+  EventAttachment({
+    required this.id,
+    required this.name,
+    required this.size,
+    required this.mimeType,
+    required this.uploadedAt,
+    required this.fileData,
+    required this.fileExtension,
+  });
+
+  factory EventAttachment.fromMap(Map<String, dynamic> map) {
+    return EventAttachment(
+      id: map['id'] ?? '',
+      name: map['name'] ?? '',
+      size: map['size'] ?? 0,
+      mimeType: map['mimeType'] ?? '',
+      uploadedAt: DateTime.fromMillisecondsSinceEpoch(map['uploadedAt']),
+      fileData: map['fileData'] ?? '',
+      fileExtension: map['fileExtension'] ?? '',
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'name': name,
+      'size': size,
+      'mimeType': mimeType,
+      'uploadedAt': uploadedAt.millisecondsSinceEpoch,
+      'fileData': fileData,
+      'fileExtension': fileExtension,
+    };
+  }
+
+  bool get isImage => mimeType.startsWith('image/');
+  bool get isPdf => mimeType == 'application/pdf';
+  bool get isText => mimeType.contains('text');
+
+  String get fileIcon {
+    if (isImage) return '🖼️';
+    if (isPdf) return '📄';
+    if (isText) return '📝';
+    return '📎';
+  }
+}
+
 class CalendarEvent {
   final String id;
   final String title;
@@ -25,6 +80,7 @@ class CalendarEvent {
   final DateTime createdAt;
   final DateTime updatedAt;
   final String? notes;
+  final List<EventAttachment> attachments;
 
   CalendarEvent({
     required this.id,
@@ -39,6 +95,7 @@ class CalendarEvent {
     required this.createdAt,
     required this.updatedAt,
     this.notes,
+    this.attachments = const [],
   });
 
   factory CalendarEvent.fromMap(
@@ -50,6 +107,15 @@ class CalendarEvent {
       (e) => e.name == typeString,
       orElse: () => EventType.other,
     );
+
+    final attachmentsList = map['attachments'] != null
+        ? (map['attachments'] as List)
+              .map(
+                (item) =>
+                    EventAttachment.fromMap(Map<String, dynamic>.from(item)),
+              )
+              .toList()
+        : <EventAttachment>[];
 
     return CalendarEvent(
       id: id,
@@ -64,6 +130,7 @@ class CalendarEvent {
       createdAt: DateTime.fromMillisecondsSinceEpoch(map['createdAt']),
       updatedAt: DateTime.fromMillisecondsSinceEpoch(map['updatedAt']),
       notes: map['notes'],
+      attachments: attachmentsList,
     );
   }
 
@@ -80,6 +147,9 @@ class CalendarEvent {
       'createdAt': createdAt.millisecondsSinceEpoch,
       'updatedAt': updatedAt.millisecondsSinceEpoch,
       if (notes != null) 'notes': notes,
+      'attachments': attachments
+          .map((attachment) => attachment.toMap())
+          .toList(),
     };
   }
 
@@ -96,6 +166,7 @@ class CalendarEvent {
     DateTime? createdAt,
     DateTime? updatedAt,
     String? notes,
+    List<EventAttachment>? attachments,
   }) {
     return CalendarEvent(
       id: id ?? this.id,
@@ -110,6 +181,7 @@ class CalendarEvent {
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       notes: notes ?? this.notes,
+      attachments: attachments ?? this.attachments,
     );
   }
 }

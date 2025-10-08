@@ -26,7 +26,7 @@ class EventService {
     };
   }
 
-  // Получить все события с учетом прав доступа
+  // Получить все события с учетом прав доступа - ИСПРАВЛЕННАЯ ВЕРСИЯ
   Stream<List<CalendarEvent>> getEvents() {
     return _auth.authStateChanges().asyncExpand((user) {
       if (user == null) return Stream.value(<CalendarEvent>[]);
@@ -46,15 +46,23 @@ class EventService {
         Query eventsQuery = _firestore.collection('events');
 
         if (isAdmin) {
+          // Администратор видит все мероприятия
           eventsQuery = eventsQuery.orderBy('startTime', descending: false);
         } else if (isDeputy) {
+          // Депутат видит свои мероприятия
           eventsQuery = eventsQuery
               .where('deputyId', isEqualTo: user.uid)
               .orderBy('startTime', descending: false);
         } else {
-          eventsQuery = eventsQuery
-              .where('deputyId', isEqualTo: deputyId)
-              .orderBy('startTime', descending: false);
+          // Помощник видит мероприятия своего депутата
+          if (deputyId != null) {
+            eventsQuery = eventsQuery
+                .where('deputyId', isEqualTo: deputyId)
+                .orderBy('startTime', descending: false);
+          } else {
+            // Если помощник не привязан к депутату, не показываем мероприятия
+            return <CalendarEvent>[];
+          }
         }
 
         try {
@@ -71,7 +79,7 @@ class EventService {
     });
   }
 
-  // Получить события на определенную дату с учетом прав доступа
+  // Получить события на определенную дату с учетом прав доступа - ИСПРАВЛЕННАЯ ВЕРСИЯ
   Stream<List<CalendarEvent>> getEventsForDate(DateTime date) {
     final startOfDay = DateTime(date.year, date.month, date.day);
     final endOfDay = DateTime(date.year, date.month, date.day, 23, 59, 59);
@@ -102,15 +110,25 @@ class EventService {
               isLessThanOrEqualTo: endOfDay.millisecondsSinceEpoch,
             );
 
-        if (!isAdmin) {
-          final filterDeputyId = isDeputy ? user.uid : deputyId;
-          eventsQuery = eventsQuery.where(
-            'deputyId',
-            isEqualTo: filterDeputyId,
-          );
+        if (isAdmin) {
+          // Администратор видит все мероприятия на дату
+          eventsQuery = eventsQuery.orderBy('startTime', descending: false);
+        } else if (isDeputy) {
+          // Депутат видит свои мероприятия на дату
+          eventsQuery = eventsQuery
+              .where('deputyId', isEqualTo: user.uid)
+              .orderBy('startTime', descending: false);
+        } else {
+          // Помощник видит мероприятия своего депутата на дату
+          if (deputyId != null) {
+            eventsQuery = eventsQuery
+                .where('deputyId', isEqualTo: deputyId)
+                .orderBy('startTime', descending: false);
+          } else {
+            // Если помощник не привязан к депутату, не показываем мероприятия
+            return <CalendarEvent>[];
+          }
         }
-
-        eventsQuery = eventsQuery.orderBy('startTime', descending: false);
 
         try {
           final eventsSnapshot = await eventsQuery.get();
@@ -135,6 +153,7 @@ class EventService {
     required String deputyId,
     EventType type = EventType.meeting,
     String? notes,
+    List<EventAttachment> attachments = const [],
   }) async {
     final user = _auth.currentUser;
     if (user == null) throw Exception('Требуется авторизация');
@@ -173,6 +192,7 @@ class EventService {
       createdAt: DateTime.now(),
       updatedAt: DateTime.now(),
       notes: notes,
+      attachments: attachments,
     );
 
     await _firestore.collection('events').doc(event.id).set(event.toMap());
@@ -226,16 +246,23 @@ class EventService {
     final event = CalendarEvent.fromMap(eventData, id: eventDoc.id);
     final userType = await _getCurrentUserType();
     final isAdmin = userType['isAdmin'];
+    final isDeputy = userType['isDeputy'];
+    final userDeputyId = userType['deputyId'];
 
+    // Проверка прав доступа
     if (!isAdmin) {
-      final userDeputyId = userType['isDeputy']
-          ? user.uid
-          : userType['deputyId'];
-      if (event.deputyId != userDeputyId) {
-        throw Exception('Нет прав для удаления этого мероприятия');
-      }
-      if (event.createdBy != user.uid) {
-        throw Exception('Можно удалять только свои мероприятия');
+      if (isDeputy) {
+        // Депутат может удалять только свои мероприятия
+        if (event.deputyId != user.uid) {
+          throw Exception('Депутат может удалять только свои мероприятия');
+        }
+      } else {
+        // Помощник может удалять мероприятия своего депутата
+        if (event.deputyId != userDeputyId) {
+          throw Exception(
+            'Помощник может удалять только мероприятия своего депутата',
+          );
+        }
       }
     }
 

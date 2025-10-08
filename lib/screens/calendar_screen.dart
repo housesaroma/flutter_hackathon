@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_application_1/screens/file_preview_screen.dart';
+import 'package:flutter_application_1/services/file_service.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:intl/intl.dart';
 import '../services/event_service.dart';
@@ -17,6 +19,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
   DateTime _focusedDay = DateTime.now();
   DateTime? _selectedDay;
   final EventService _eventService = EventService();
+  final FileService _fileService = FileService();
 
   @override
   void initState() {
@@ -73,9 +76,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
         selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
         calendarFormat: _calendarFormat,
         availableCalendarFormats: const {
-          CalendarFormat.month: 'Месяц',
-          CalendarFormat.twoWeeks: '2 недели',
-          CalendarFormat.week: 'Неделя',
+          CalendarFormat.month: 'Неделя',
+          CalendarFormat.twoWeeks: 'Месяц',
+          CalendarFormat.week: '2 недели',
         },
         onFormatChanged: (format) {
           setState(() {
@@ -231,6 +234,37 @@ class _CalendarScreenState extends State<CalendarScreen> {
                 _buildDetailRow('Место', event.location),
               if (event.description.isNotEmpty)
                 _buildDetailRow('Описание', event.description),
+              if (event.attachments.isNotEmpty) ...[
+                const SizedBox(height: 16),
+                const Text(
+                  'Прикрепленные файлы:',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                ...event.attachments
+                    .map(
+                      (attachment) => ListTile(
+                        leading: Text(attachment.fileIcon),
+                        title: Text(attachment.name),
+                        subtitle: Text(
+                          _fileService.getFileSizeString(attachment.size),
+                        ),
+                        trailing: const Icon(Icons.visibility),
+                        onTap: () {
+                          Navigator.pop(context);
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => FilePreviewScreen(
+                                attachment: attachment,
+                                fileService: _fileService,
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    )
+                    .toList(),
+              ],
             ],
           ),
         ),
