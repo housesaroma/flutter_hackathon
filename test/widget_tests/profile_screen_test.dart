@@ -1,11 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_application_1/screens/profile_screen.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mockito/mockito.dart';
-import 'package:flutter_application_1/screens/profile_screen.dart';
-import 'package:flutter_application_1/services/auth_service.dart';
-import 'package:flutter_application_1/services/event_service.dart';
-import 'package:flutter_application_1/models/user_model.dart';
-import '../test_helpers.dart';
+
+import 'test_helpers.dart';
 
 void main() {
   group('ProfileScreen Widget Tests', () {
@@ -17,35 +15,38 @@ void main() {
       mockEventService = MockEventService();
     });
 
-    testWidgets('должен отображать все основные элементы профиля пользователя', 
-        (WidgetTester tester) async {
-      await tester.pumpWidget(
-        createTestWidget(
-          ProfileScreen(),
-          authService: mockAuthService,
-          eventService: mockEventService,
-        ),
-      );
+    testWidgets(
+      'должен отображать все основные элементы профиля пользователя',
+      (WidgetTester tester) async {
+        await tester.pumpWidget(
+          createTestWidget(
+            ProfileScreen(),
+            authService: mockAuthService,
+            eventService: mockEventService,
+          ),
+        );
 
-      await tester.pumpAndSettle();
+        await tester.pumpAndSettle();
 
-      // Проверяем заголовок
-      expect(find.text('Профиль'), findsOneWidget);
-      
-      // Проверяем аватар и имя пользователя
-      expect(find.byType(CircleAvatar), findsOneWidget);
-      expect(find.text('Тестовый Пользователь'), findsOneWidget);
-      
-      // Проверяем роль пользователя
-      expect(find.text('Сотрудник аппарата'), findsOneWidget);
-      
-      // Проверяем кнопки
-      expect(find.byIcon(Icons.edit), findsOneWidget);
-      expect(find.text('Выйти из системы'), findsOneWidget);
-    });
+        // Проверяем заголовок
+        expect(find.text('Профиль'), findsOneWidget);
 
-    testWidgets('должен отображать корректную роль для депутата', 
-        (WidgetTester tester) async {
+        // Проверяем аватар и имя пользователя
+        expect(find.byType(CircleAvatar), findsOneWidget);
+        expect(find.text('Тестовый Пользователь'), findsOneWidget);
+
+        // Проверяем роль пользователя
+        expect(find.text('Сотрудник аппарата'), findsOneWidget);
+
+        // Проверяем кнопки
+        expect(find.byIcon(Icons.edit), findsOneWidget);
+        expect(find.text('Выйти из системы'), findsOneWidget);
+      },
+    );
+
+    testWidgets('должен отображать корректную роль для депутата', (
+      WidgetTester tester,
+    ) async {
       when(mockAuthService.currentUser).thenReturn(mockDeputy);
 
       await tester.pumpWidget(
@@ -63,8 +64,9 @@ void main() {
       expect(find.text('Тестовый Депутат'), findsOneWidget);
     });
 
-    testWidgets('должен отображать данные профиля в режиме просмотра', 
-        (WidgetTester tester) async {
+    testWidgets('должен отображать данные профиля в режиме просмотра', (
+      WidgetTester tester,
+    ) async {
       // Настраиваем пользователя с полными данными
       final userWithFullData = mockUser.copyWith(
         phone: '+7 (999) 123-45-67',
@@ -87,39 +89,42 @@ void main() {
       expect(find.text('Email:'), findsOneWidget);
       expect(find.text('Телефон:'), findsOneWidget);
       expect(find.text('Отдел:'), findsOneWidget);
-      
+
       expect(find.text('test@test.com'), findsOneWidget);
       expect(find.text('+7 (999) 123-45-67'), findsOneWidget);
       expect(find.text('IT отдел'), findsOneWidget);
     });
 
-    testWidgets('должен переключаться в режим редактирования при нажатии на иконку', 
-        (WidgetTester tester) async {
-      await tester.pumpWidget(
-        createTestWidget(
-          ProfileScreen(),
-          authService: mockAuthService,
-          eventService: mockEventService,
-        ),
-      );
+    testWidgets(
+      'должен переключаться в режим редактирования при нажатии на иконку',
+      (WidgetTester tester) async {
+        await tester.pumpWidget(
+          createTestWidget(
+            ProfileScreen(),
+            authService: mockAuthService,
+            eventService: mockEventService,
+          ),
+        );
 
-      await tester.pumpAndSettle();
+        await tester.pumpAndSettle();
 
-      // Нажимаем на кнопку редактирования
-      await tester.tap(find.byIcon(Icons.edit));
-      await tester.pump();
+        // Нажимаем на кнопку редактирования
+        await tester.tap(find.byIcon(Icons.edit));
+        await tester.pump();
 
-      // Проверяем, что появились поля ввода и кнопки сохранения/отмены
-      expect(find.byType(TextFormField), findsWidgets);
-      expect(find.text('Сохранить'), findsOneWidget);
-      expect(find.text('Отмена'), findsOneWidget);
-      
-      // Кнопка редактирования должна исчезнуть
-      expect(find.byIcon(Icons.edit), findsNothing);
-    });
+        // Проверяем, что появились поля ввода и кнопки сохранения/отмены
+        expect(find.byType(TextFormField), findsWidgets);
+        expect(find.text('Сохранить'), findsOneWidget);
+        expect(find.text('Отмена'), findsOneWidget);
 
-    testWidgets('должен показывать поля формы в режиме редактирования', 
-        (WidgetTester tester) async {
+        // Кнопка редактирования должна исчезнуть
+        expect(find.byIcon(Icons.edit), findsNothing);
+      },
+    );
+
+    testWidgets('должен показывать поля формы в режиме редактирования', (
+      WidgetTester tester,
+    ) async {
       await tester.pumpWidget(
         createTestWidget(
           ProfileScreen(),
@@ -138,13 +143,14 @@ void main() {
       expect(find.text('ФИО'), findsOneWidget);
       expect(find.text('Телефон'), findsOneWidget);
       expect(find.text('Отдел'), findsOneWidget);
-      
+
       // Email не должен редактироваться
       expect(find.textContaining('Email нельзя изменить'), findsOneWidget);
     });
 
-    testWidgets('должен сохранять изменения при нажатии "Сохранить"', 
-        (WidgetTester tester) async {
+    testWidgets('должен сохранять изменения при нажатии "Сохранить"', (
+      WidgetTester tester,
+    ) async {
       await tester.pumpWidget(
         createTestWidget(
           ProfileScreen(),
@@ -168,17 +174,16 @@ void main() {
       await tester.pumpAndSettle();
 
       // Проверяем, что updateProfile был вызван
-      verify(mockAuthService.updateProfile(
-        name: 'Новое Имя',
-      )).called(1);
+      verify(mockAuthService.updateProfile(name: 'Новое Имя')).called(1);
 
       // Проверяем, что вышли из режима редактирования
       expect(find.text('Сохранить'), findsNothing);
       expect(find.byIcon(Icons.edit), findsOneWidget);
     });
 
-    testWidgets('должен отменять изменения при нажатии "Отмена"', 
-        (WidgetTester tester) async {
+    testWidgets('должен отменять изменения при нажатии "Отмена"', (
+      WidgetTester tester,
+    ) async {
       await tester.pumpWidget(
         createTestWidget(
           ProfileScreen(),
@@ -202,9 +207,7 @@ void main() {
       await tester.pump();
 
       // Проверяем, что updateProfile НЕ был вызван
-      verifyNever(mockAuthService.updateProfile(
-        name: anyNamed('name'),
-      ));
+      verifyNever(mockAuthService.updateProfile(name: anyNamed('name')));
 
       // Проверяем, что вышли из режима редактирования
       expect(find.text('Отмена'), findsNothing);
@@ -214,8 +217,9 @@ void main() {
       expect(find.text('Тестовый Пользователь'), findsOneWidget);
     });
 
-    testWidgets('должен показывать поле выбора депутата для сотрудника', 
-        (WidgetTester tester) async {
+    testWidgets('должен показывать поле выбора депутата для сотрудника', (
+      WidgetTester tester,
+    ) async {
       // Настраиваем пользователя-сотрудника
       final staffUser = mockUser.copyWith(isDeputy: false);
       when(mockAuthService.currentUser).thenReturn(staffUser);
@@ -239,8 +243,9 @@ void main() {
       expect(find.byType(DropdownButtonFormField<String>), findsOneWidget);
     });
 
-    testWidgets('должен скрывать поле выбора депутата для депутата', 
-        (WidgetTester tester) async {
+    testWidgets('должен скрывать поле выбора депутата для депутата', (
+      WidgetTester tester,
+    ) async {
       when(mockAuthService.currentUser).thenReturn(mockDeputy);
 
       await tester.pumpWidget(
@@ -262,8 +267,9 @@ void main() {
       expect(find.byType(DropdownButtonFormField<String>), findsNothing);
     });
 
-    testWidgets('должен показывать информацию о прикрепленном депутате', 
-        (WidgetTester tester) async {
+    testWidgets('должен показывать информацию о прикрепленном депутате', (
+      WidgetTester tester,
+    ) async {
       // Настраиваем сотрудника с депутатом
       final staffWithDeputy = mockUser.copyWith(
         isDeputy: false,
@@ -285,8 +291,9 @@ void main() {
       expect(find.text('Помощник: Тестовый Депутат'), findsOneWidget);
     });
 
-    testWidgets('должен выполнять выход из системы при нажатии кнопки', 
-        (WidgetTester tester) async {
+    testWidgets('должен выполнять выход из системы при нажатии кнопки', (
+      WidgetTester tester,
+    ) async {
       await tester.pumpWidget(
         createTestWidget(
           ProfileScreen(),
@@ -305,8 +312,9 @@ void main() {
       verify(mockAuthService.signOut()).called(1);
     });
 
-    testWidgets('должен загружать список депутатов для выбора', 
-        (WidgetTester tester) async {
+    testWidgets('должен загружать список депутатов для выбора', (
+      WidgetTester tester,
+    ) async {
       // Настраиваем сотрудника
       final staffUser = mockUser.copyWith(isDeputy: false);
       when(mockAuthService.currentUser).thenReturn(staffUser);
@@ -333,12 +341,13 @@ void main() {
       expect(find.text('Тестовый Депутат'), findsOneWidget);
     });
 
-    testWidgets('должен показывать индикатор загрузки во время обновления', 
-        (WidgetTester tester) async {
+    testWidgets('должен показывать индикатор загрузки во время обновления', (
+      WidgetTester tester,
+    ) async {
       // Настраиваем mock для имитации загрузки
-      when(mockAuthService.updateProfile(
-        name: anyNamed('name'),
-      )).thenAnswer((_) async {
+      when(mockAuthService.updateProfile(name: anyNamed('name'))).thenAnswer((
+        _,
+      ) async {
         await Future.delayed(Duration(seconds: 1));
       });
 
@@ -368,12 +377,13 @@ void main() {
       expect(find.byType(CircularProgressIndicator), findsOneWidget);
     });
 
-    testWidgets('должен обрабатывать ошибки обновления профиля', 
-        (WidgetTester tester) async {
+    testWidgets('должен обрабатывать ошибки обновления профиля', (
+      WidgetTester tester,
+    ) async {
       // Настраиваем mock для возврата ошибки
-      when(mockAuthService.updateProfile(
-        name: anyNamed('name'),
-      )).thenThrow(Exception('Ошибка обновления профиля'));
+      when(
+        mockAuthService.updateProfile(name: anyNamed('name')),
+      ).thenThrow(Exception('Ошибка обновления профиля'));
 
       await tester.pumpWidget(
         createTestWidget(
@@ -399,8 +409,9 @@ void main() {
       expect(find.textContaining('Ошибка обновления профиля'), findsOneWidget);
     });
 
-    testWidgets('должен валидировать обязательные поля', 
-        (WidgetTester tester) async {
+    testWidgets('должен валидировать обязательные поля', (
+      WidgetTester tester,
+    ) async {
       await tester.pumpWidget(
         createTestWidget(
           ProfileScreen(),
@@ -427,8 +438,9 @@ void main() {
       expect(find.text('Введите ФИО'), findsOneWidget);
     });
 
-    testWidgets('должен корректно отображать цветовую схему', 
-        (WidgetTester tester) async {
+    testWidgets('должен корректно отображать цветовую схему', (
+      WidgetTester tester,
+    ) async {
       await tester.pumpWidget(
         createTestWidget(
           ProfileScreen(),
@@ -448,8 +460,9 @@ void main() {
       expect(find.byType(Chip), findsOneWidget);
     });
 
-    testWidgets('должен сохранять состояние формы при ошибках', 
-        (WidgetTester tester) async {
+    testWidgets('должен сохранять состояние формы при ошибках', (
+      WidgetTester tester,
+    ) async {
       await tester.pumpWidget(
         createTestWidget(
           ProfileScreen(),
@@ -478,8 +491,9 @@ void main() {
       expect(find.byIcon(Icons.edit), findsNothing);
     });
 
-    testWidgets('должен показывать подтверждение перед выходом', 
-        (WidgetTester tester) async {
+    testWidgets('должен показывать подтверждение перед выходом', (
+      WidgetTester tester,
+    ) async {
       await tester.pumpWidget(
         createTestWidget(
           ProfileScreen(),
@@ -499,7 +513,7 @@ void main() {
         expect(find.text('Выйти из системы?'), findsOneWidget);
         expect(find.text('Да'), findsOneWidget);
         expect(find.text('Отмена'), findsOneWidget);
-        
+
         // Подтверждаем выход
         await tester.tap(find.text('Да'));
         await tester.pump();

@@ -41,6 +41,9 @@ dependencies:
   provider: ^6.1.5+1
   table_calendar: ^3.2.0
   intl: ^0.20.2
+  integration_test:
+    sdk: flutter
+  mockito: ^5.5.1
 
 dev_dependencies:
   flutter_test:
