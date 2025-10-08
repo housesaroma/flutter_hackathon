@@ -1,6 +1,6 @@
 # Система управления мероприятиями
 
-Мобильное приложение для управления календарем мероприятий с системой ролей пользователей, построенное на Flutter и Firebase.
+Мобильное приложение для управления мероприятиями депутатов думы города Екатеринбурга и их помощников, построенное на Flutter и Firebase.
 
 ## 📋 Описание проекта
 
@@ -52,7 +52,6 @@ dependencies:
 ### 1. Клонирование репозитория
 ```bash
 git clone https://github.com/housesaroma/flutter_hackathon
-cd personal account for the deputy
 ```
 
 ### 2. Установка зависимостей
@@ -170,12 +169,12 @@ flutter build web --release        # Web
 
 ### Типы мероприятий
 
-| Тип | Описание | Цвет |
-|-----|----------|------|
-| 🔵 Совещание | Рабочие встречи | Синий |
-| 🟢 Заседание | Официальные заседания | Зеленый |
-| 🟠 Прием | Прием граждан | Оранжевый |
-| ⚫ Другое | Прочие мероприятия | Серый |
+| Тип | Описание |
+|-----|----------|
+| 🔵 Совещание | Рабочие встречи |
+| 🟢 Заседание | Официальные заседания |
+| 🟠 Прием | Прием граждан |
+| ⚫ Другое | Прочие мероприятия |
 
 ## 📁 Структура проекта
 
@@ -268,54 +267,43 @@ service cloud.firestore {
         (request.auth.uid == userId || isAdmin());
       allow delete: if isAdmin();
     }
-    
     // Чтение мероприятий
     match /events/{eventId} {
       allow read, write: if request.auth != null && 
         (isAdmin()  isDeputy()  isAssistantForEvent(eventId));
-      
       // Помощники могут создавать только для своего депутата
       allow create: if request.auth != null && 
         (isAdmin()  isDeputy()  canCreateForDeputy());
     }
-    
     // Чтение списка пользователей (для выбора депутатов)
     match /users/{userId} {
       allow read: if request.auth != null && 
         (request.auth.uid == userId  isAdmin()  canReadDeputies());
     }
-
     // Вспомогательные функции
     function isAdmin() {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
     }
-    
     function isDeputy() {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isDeputy == true;
     }
-    
     function isAssistant() {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isDeputy == false;
     }
-    
     function getAssistantDeputyId() {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.deputyId;
     }
-    
     function isAssistantForEvent(eventId) {
       let event = get(/databases/$(database)/documents/events/$(eventId));
       return isAssistant() && event.data.deputyId == getAssistantDeputyId();
     }
-    
     function canCreateForDeputy() {
       return isAssistant() && request.resource.data.deputyId == getAssistantDeputyId();
     }
-    
     // Разрешить чтение депутатов для помощников
     function canReadDeputies() {
       let userDoc = get(/databases/$(database)/documents/users/$(request.auth.uid));
       let targetDoc = get(/databases/$(database)/documents/users/$(userId));
-      
       // Помощники могут читать только депутатов
       return userDoc.data.isDeputy == false && targetDoc.data.isDeputy == true;
     }
@@ -347,6 +335,7 @@ Widget тесты располагаются в папке `test\widget_tests`
 ## 📈 Производительность
 - Реактивные стримы вместо ручного опроса
 - Серверные фильтры и сортировки
+- Индексы в БД
 
 ## 🎨 UI/UX
 - Material Design 3, адаптивная верстка, доступность для Android
@@ -361,11 +350,6 @@ Widget тесты располагаются в папке `test\widget_tests`
 - Email: 
 - Пароль: 
 
-## 🤝 Contributing
-- Fork → Branch → Commit → PR
-
-## 📄 Лицензия
-MIT
 
 ## 👨‍💻 Авторы
 - Главный разработчик — @housesaroma
