@@ -11,7 +11,7 @@
 - 📅 **Календарь мероприятий** с различными типами событий
 - 👥 **Система ролей** (администратор, депутат, сотрудник)
 - 🔐 **Безопасная аутентификация** через Firebase Auth
-- 📱 **Кроссплатформенность** (iOS, Android, Web, Desktop)
+- 📱 **Кроссплатформенность** (iOS, Android, Web)
 - 🔄 **Реальное время** синхронизация данных
 - 📝 **Управление профилем** пользователя
 
@@ -43,10 +43,9 @@ dependencies:
 - Git
 
 ### Для пользователей:
-- **Android:** API level 21+ (Android 5.0+)
-- **iOS:** iOS 11.0+
+- **Android:** Android 10+
+- **iOS:** iOS 15.0+
 - **Web:** Современные браузеры
-- **Windows:** Windows 10+
 
 ## 🚀 Установка и настройка
 
@@ -72,30 +71,7 @@ flutter pub get
 
 ### 4. Структура базы данных Firestore
 
-```
-users/
-  {uid}/
-    name: string
-    email: string
-    isDeputy: boolean
-    isAdmin: boolean
-    deputyId: string (optional)
-    phone: string (optional)
-    department: string (optional)
-    createdAt: timestamp
 
-events/
-  {eventId}/
-    title: string
-    description: string
-    startTime: timestamp
-    endTime: timestamp
-    location: string
-    type: string (meeting|session|reception|other)
-    deputyId: string
-    createdBy: string
-    notes: string (optional)
-```
 
 ### 5. Сборка и запуск
 
@@ -107,8 +83,9 @@ flutter run
 flutter build apk --release        # Android
 flutter build ios --release        # iOS
 flutter build web --release        # Web
-flutter build windows --release    # Windows
 ```
+
+Развертывание полностью автоматизировано, с использованием лучших практик CI/CD.
 
 ## 📱 Функциональность приложения
 
@@ -231,6 +208,71 @@ test/
 - **Создание/редактирование:** запреты на изменение после создания, удаление только автором события (если не администратор)
 
 
+У каждой роли есть правила, которые ограничивают её:
+'''
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Разрешить создание пользователей при регистрации
+    match /users/{userId} {
+      allow create: if request.auth != null && request.auth.uid == userId;
+      allow read, update: if request.auth != null && 
+        (request.auth.uid == userId || isAdmin());
+      allow delete: if isAdmin();
+    }
+    
+    // Чтение мероприятий
+    match /events/{eventId} {
+      allow read, write: if request.auth != null && 
+        (isAdmin()  isDeputy()  isAssistantForEvent(eventId));
+      
+      // Помощники могут создавать только для своего депутата
+      allow create: if request.auth != null && 
+        (isAdmin()  isDeputy()  canCreateForDeputy());
+    }
+    
+    // Чтение списка пользователей (для выбора депутатов)
+    match /users/{userId} {
+      allow read: if request.auth != null && 
+        (request.auth.uid == userId  isAdmin()  canReadDeputies());
+    }
+
+    // Вспомогательные функции
+    function isAdmin() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
+    }
+    
+    function isDeputy() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isDeputy == true;
+    }
+    
+    function isAssistant() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isDeputy == false;
+    }
+    
+    function getAssistantDeputyId() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.deputyId;
+    }
+    
+    function isAssistantForEvent(eventId) {
+      let event = get(/databases/$(database)/documents/events/$(eventId));
+      return isAssistant() && event.data.deputyId == getAssistantDeputyId();
+    }
+    
+    function canCreateForDeputy() {
+      return isAssistant() && request.resource.data.deputyId == getAssistantDeputyId();
+    }
+    
+    // Разрешить чтение депутатов для помощников
+    function canReadDeputies() {
+      let userDoc = get(/databases/$(database)/documents/users/$(request.auth.uid));
+      let targetDoc = get(/databases/$(database)/documents/users/$(userId));
+      
+      // Помощники могут читать только депутатов
+      return userDoc.data.isDeputy == false && targetDoc.data.isDeputy == true;
+    }
+  }
+}
+'''
 
 ## 🛡 Практики безопасности клиента
 - Валидация всех форм и ограничение ролей в UI
@@ -255,7 +297,8 @@ test/
 - Индексы Firestore по `startTime` и `deputyId`
 
 ## 🎨 UI/UX
-- Material Design 3, адаптивная верстка, доступность
+- Material Design 3, адаптивная верстка, доступность для Android
+- Cupertino Design, адаптивная верстка, доступность для iOS
 
 ## 📝 Демо-данные
 Депутат:
