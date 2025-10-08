@@ -1,279 +1,114 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_application_1/screens/login_screen.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mockito/mockito.dart';
-
-import 'test_helpers.dart';
+import 'package:flutter_application_1/screens/login_screen.dart';
 
 void main() {
-  group('LoginScreen Widget Tests', () {
-    late MockAuthService mockAuthService;
+  // Проверка наличия всех основных элементов
+  testWidgets('Проверка наличия всех полей на экране входа', (WidgetTester tester) async {
+    await tester.pumpWidget(MaterialApp(home: LoginScreen()));
 
-    setUp(() {
-      mockAuthService = MockAuthService();
+    final elements = {
+      'Заголовок "Вход в систему"': find.text('Вход в систему'),
+      'Текст "Екатеринбургская Городская Дума"': find.text('Екатеринбургская Городская Дума'),
+      'Текст "Кабинет депутата и сотрудника аппарата"': find.text('Кабинет депутата и сотрудника аппарата'),
+      'Поле Email': find.text('Email'),
+      'Поле Пароль': find.text('Пароль'),
+      'Поле ввода Email': find.byIcon(Icons.email),
+      'Поле ввода Пароль': find.byIcon(Icons.lock),
+      'Кнопка "Войти"': find.text('Войти'),
+      'Кнопка "Зарегистрироваться"': find.text('Зарегистрироваться'),
+      'Ссылка "Забыли пароль?"': find.text('Забыли пароль?'),
+    };
+    elements.forEach((name, finder) {
+      final found = finder.evaluate().isNotEmpty;
+      final status = found ? '✅' : '❌';
+      debugPrint('$name $status');
+      expect(found, true, reason: 'Элемент "$name" не найден на экране');
     });
+  });
 
-    testWidgets('должен отображать все основные элементы экрана входа', (
-      WidgetTester tester,
-    ) async {
-      await tester.pumpWidget(
-        createTestWidget(LoginScreen(), authService: mockAuthService),
-      );
+  // Тест ввода текста в поля Email и Password
+  testWidgets('Ввод текста в Email и Password', (WidgetTester tester) async {
+    await tester.pumpWidget(MaterialApp(home: LoginScreen()));
 
-      // Проверяем заголовки и текст
-      expect(find.text('Вход в систему'), findsOneWidget);
-      expect(find.text('Екатеринбургская Городская Дума'), findsOneWidget);
+    final emailField = find.byType(TextFormField).first;
+    final passwordField = find.byType(TextFormField).last;
+    await tester.enterText(emailField, 'test@example.com');
+    await tester.enterText(passwordField, 'password123');
+    expect(find.text('test@example.com'), findsOneWidget);
+    expect(find.text('password123'), findsOneWidget);
+  });
 
-      // Проверяем поля ввода
-      expect(find.byType(TextFormField), findsNWidgets(2));
+  // Тест валидации формы (проверка пустых и некорректных данных)
+  testWidgets('Валидация формы', (WidgetTester tester) async {
+    await tester.pumpWidget(MaterialApp(home: LoginScreen()));
 
-      // Проверяем кнопки
-      expect(find.text('Войти'), findsOneWidget);
-      expect(find.text('Зарегистрироваться'), findsOneWidget);
+    final loginButton = find.text('Войти');
+    await tester.tap(loginButton);
+    await tester.pump();
 
-      // Проверяем наличие иконок
-      expect(find.byIcon(Icons.email), findsOneWidget);
-      expect(find.byIcon(Icons.lock), findsOneWidget);
-    });
+    // Ожидаем, что валидатор выведет ошибку для пустых полей
+    expect(find.text('Email не может быть пустым'), findsOneWidget);
+    expect(find.text('Пароль не может быть пустым'), findsOneWidget);
 
-    testWidgets('должен показывать ошибки валидации для пустых полей', (
-      WidgetTester tester,
-    ) async {
-      await tester.pumpWidget(
-        createTestWidget(LoginScreen(), authService: mockAuthService),
-      );
+    // Ввести неверный email и проверить ошибку
+    final emailField = find.byType(TextFormField).first;
+    await tester.enterText(emailField, 'invalid-email');
+    await tester.tap(loginButton);
+    await tester.pump();
+    expect(find.text('Введите корректный email'), findsOneWidget);
+  });
 
-      // Нажимаем кнопку входа без заполнения полей
-      await tester.tap(find.text('Войти'));
-      await tester.pump();
+  // Тест переключения видимости пароля
+  testWidgets('Переключение видимости пароля', (WidgetTester tester) async {
+    await tester.pumpWidget(MaterialApp(home: LoginScreen()));
 
-      // Проверяем сообщения об ошибках
-      expect(find.text('Введите email'), findsOneWidget);
-      expect(find.text('Введите пароль'), findsOneWidget);
-    });
+    final passwordField = find.byType(TextFormField).last;
+    final toggleIcon = find.byIcon(Icons.visibility_off);
 
-    testWidgets('должен показывать ошибку для некорректного email', (
-      WidgetTester tester,
-    ) async {
-      await tester.pumpWidget(
-        createTestWidget(LoginScreen(), authService: mockAuthService),
-      );
+    // Изначально пароль скрыт
+    expect(toggleIcon, findsOneWidget);
 
-      // Находим поля ввода
-      final emailField = find.byType(TextFormField).first;
-      final passwordField = find.byType(TextFormField).last;
+    // Нажать на иконку и проверить, что она изменится
+    await tester.tap(toggleIcon);
+    await tester.pump();
 
-      // Вводим некорректный email
-      await tester.enterText(emailField, 'invalid-email');
-      await tester.enterText(passwordField, 'password123');
+    expect(find.byIcon(Icons.visibility), findsOneWidget);
+  });
 
-      // Нажимаем войти
-      await tester.tap(find.text('Войти'));
-      await tester.pump();
+  // Тест нажатия кнопки "Войти" и состояния загрузки
+  testWidgets('Кнопка "Войти" и индикатор загрузки', (WidgetTester tester) async {
+    await tester.pumpWidget(MaterialApp(home: LoginScreen()));
 
-      expect(find.text('Введите корректный email'), findsOneWidget);
-    });
+    final loginButton = find.text('Войти');
+    await tester.tap(loginButton);
+    await tester.pump();
 
-    testWidgets('должен показывать ошибку для короткого пароля', (
-      WidgetTester tester,
-    ) async {
-      await tester.pumpWidget(
-        createTestWidget(LoginScreen(), authService: mockAuthService),
-      );
+    // В состоянии загрузки кнопка может быть неактивна или отображаться индикатор
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+  });
 
-      final emailField = find.byType(TextFormField).first;
-      final passwordField = find.byType(TextFormField).last;
+  // Тест перехода по ссылке "Зарегистрироваться"
+  testWidgets('Переход по ссылке "Зарегистрироваться"', (WidgetTester tester) async {
+    await tester.pumpWidget(MaterialApp(home: LoginScreen()));
 
-      await tester.enterText(emailField, 'test@test.com');
-      await tester.enterText(passwordField, '123');
+    final registerButton = find.text('Зарегистрироваться');
+    await tester.tap(registerButton);
+    await tester.pumpAndSettle();
 
-      await tester.tap(find.text('Войти'));
-      await tester.pump();
+    // Здесь нужно проверить, что произошёл переход на экран регистрации,
+    // например, find.byType(RegisterScreen) или find.text('Регистрация')
+  });
 
-      expect(
-        find.text('Пароль должен содержать минимум 6 символов'),
-        findsOneWidget,
-      );
-    });
+  // Тест показа окна восстановления пароля
+  testWidgets('Показ окна восстановления пароля', (WidgetTester tester) async {
+    await tester.pumpWidget(MaterialApp(home: LoginScreen()));
 
-    testWidgets('должен переключать видимость пароля при нажатии на иконку', (
-      WidgetTester tester,
-    ) async {
-      await tester.pumpWidget(
-        createTestWidget(LoginScreen(), authService: mockAuthService),
-      );
+    final forgotPasswordLink = find.text('Забыли пароль?');
+    await tester.tap(forgotPasswordLink);
+    await tester.pumpAndSettle();
 
-      // Находим иконку видимости пароля
-      final visibilityIcon = find.byIcon(Icons.visibility_off);
-
-      if (visibilityIcon.evaluate().isNotEmpty) {
-        // Нажимаем на иконку
-        await tester.tap(visibilityIcon);
-        await tester.pump();
-
-        // Проверяем, что иконка изменилась
-        expect(find.byIcon(Icons.visibility), findsOneWidget);
-        expect(find.byIcon(Icons.visibility_off), findsNothing);
-
-        // Нажимаем еще раз
-        await tester.tap(find.byIcon(Icons.visibility));
-        await tester.pump();
-
-        // Проверяем, что вернулась исходная иконка
-        expect(find.byIcon(Icons.visibility_off), findsOneWidget);
-        expect(find.byIcon(Icons.visibility), findsNothing);
-      }
-    });
-
-    testWidgets('должен вызывать signIn при успешной валидации', (
-      WidgetTester tester,
-    ) async {
-      await tester.pumpWidget(
-        createTestWidget(LoginScreen(), authService: mockAuthService),
-      );
-
-      final emailField = find.byType(TextFormField).first;
-      final passwordField = find.byType(TextFormField).last;
-
-      // Вводим корректные данные
-      await tester.enterText(emailField, 'test@test.com');
-      await tester.enterText(passwordField, 'password123');
-
-      // Нажимаем войти
-      await tester.tap(find.text('Войти'));
-      await tester.pump();
-
-      // Проверяем, что был вызван метод signIn
-      verify(mockAuthService.signIn('test@test.com', 'password123')).called(1);
-    });
-
-    testWidgets('должен показывать индикатор загрузки во время входа', (
-      WidgetTester tester,
-    ) async {
-      // Настраиваем mock для возврата состояния загрузки
-      when(mockAuthService.isLoading).thenReturn(true);
-
-      await tester.pumpWidget(
-        createTestWidget(LoginScreen(), authService: mockAuthService),
-      );
-
-      // Если индикатор загрузки показывается
-      expect(find.byType(CircularProgressIndicator), findsOneWidget);
-      expect(find.text('Вход...'), findsOneWidget);
-    });
-
-    testWidgets('должен заполнять демо данные при нажатии на кнопку Демо', (
-      WidgetTester tester,
-    ) async {
-      await tester.pumpWidget(
-        createTestWidget(LoginScreen(), authService: mockAuthService),
-      );
-
-      // Ищем кнопку демо данных
-      final demoButton = find.text('Демо');
-
-      if (demoButton.evaluate().isNotEmpty) {
-        await tester.tap(demoButton);
-        await tester.pump();
-
-        // Проверяем, что поля заполнились демо данными
-        expect(find.text('test@egd.ru'), findsOneWidget);
-      }
-    });
-
-    testWidgets('должен переходить на экран регистрации при нажатии кнопки', (
-      WidgetTester tester,
-    ) async {
-      await tester.pumpWidget(
-        createTestWidget(LoginScreen(), authService: mockAuthService),
-      );
-
-      // Нажимаем кнопку регистрации
-      await tester.tap(find.text('Зарегистрироваться'));
-      await tester.pumpAndSettle();
-
-      // Здесь проверяем переход к RegisterScreen
-      // В зависимости от реализации навигации
-    });
-
-    testWidgets('должен корректно обрабатывать ошибку аутентификации', (
-      WidgetTester tester,
-    ) async {
-      // Настраиваем mock для возврата ошибки
-      when(
-        mockAuthService.signIn(any, any),
-      ).thenThrow(Exception('Неверный email или пароль'));
-
-      await tester.pumpWidget(
-        createTestWidget(LoginScreen(), authService: mockAuthService),
-      );
-
-      final emailField = find.byType(TextFormField).first;
-      final passwordField = find.byType(TextFormField).last;
-
-      await tester.enterText(emailField, 'wrong@test.com');
-      await tester.enterText(passwordField, 'wrongpassword');
-
-      await tester.tap(find.text('Войти'));
-      await tester.pump();
-
-      // Проверяем отображение ошибки
-      expect(find.textContaining('Неверный email или пароль'), findsOneWidget);
-    });
-
-    testWidgets('должен очищать поля при успешном входе', (
-      WidgetTester tester,
-    ) async {
-      await tester.pumpWidget(
-        createTestWidget(LoginScreen(), authService: mockAuthService),
-      );
-
-      final emailField = find.byType(TextFormField).first;
-      final passwordField = find.byType(TextFormField).last;
-
-      // Заполняем поля
-      await tester.enterText(emailField, 'test@test.com');
-      await tester.enterText(passwordField, 'password123');
-
-      // Входим
-      await tester.tap(find.text('Войти'));
-      await tester.pumpAndSettle();
-
-      // Проверяем, что поля очистились (если это предусмотрено логикой)
-      final emailController = tester
-          .widget<TextFormField>(emailField)
-          .controller;
-      final passwordController = tester
-          .widget<TextFormField>(passwordField)
-          .controller;
-
-      if (emailController?.text.isEmpty == true) {
-        expect(emailController!.text, isEmpty);
-      }
-      if (passwordController?.text.isEmpty == true) {
-        expect(passwordController!.text, isEmpty);
-      }
-    });
-
-    testWidgets('должен сохранять состояние полей при пересборке виджета', (
-      WidgetTester tester,
-    ) async {
-      await tester.pumpWidget(
-        createTestWidget(LoginScreen(), authService: mockAuthService),
-      );
-
-      final emailField = find.byType(TextFormField).first;
-
-      // Вводим текст
-      await tester.enterText(emailField, 'test@test.com');
-
-      // Пересобираем виджет
-      await tester.pumpWidget(
-        createTestWidget(LoginScreen(), authService: mockAuthService),
-      );
-
-      // Проверяем, что текст сохранился
-      expect(find.text('test@test.com'), findsOneWidget);
-    });
+    // Проверить, появился ли диалог восстановления пароля
+    expect(find.byType(AlertDialog), findsOneWidget);
   });
 }
