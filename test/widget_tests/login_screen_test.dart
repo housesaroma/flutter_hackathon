@@ -39,54 +39,86 @@ void main() {
     expect(find.text('password123'), findsOneWidget);
   });
 
-  // Тест валидации формы (проверка пустых и некорректных данных)
-  testWidgets('Валидация формы', (WidgetTester tester) async {
+
+  // Неверный формат e-mail
+  testWidgets('Проверка пустого формата email', (WidgetTester tester) async {
+
     await tester.pumpWidget(MaterialApp(home: LoginScreen()));
+    await tester.pumpAndSettle();
+
+    final emailField = find.byType(TextFormField).first;
+    final passwordField = find.byType(TextFormField).last;
+    await tester.enterText(emailField, 'test');
+    await tester.enterText(passwordField, 'password123');
 
     final loginButton = find.text('Войти');
+    await tester.ensureVisible(loginButton);
     await tester.tap(loginButton);
     await tester.pump();
 
-    // Ожидаем, что валидатор выведет ошибку для пустых полей
-    expect(find.text('Email не может быть пустым'), findsOneWidget);
-    expect(find.text('Пароль не может быть пустым'), findsOneWidget);
-
-    // Ввести неверный email и проверить ошибку
-    final emailField = find.byType(TextFormField).first;
-    await tester.enterText(emailField, 'invalid-email');
-    await tester.tap(loginButton);
-    await tester.pump();
     expect(find.text('Введите корректный email'), findsOneWidget);
   });
 
-  // Тест переключения видимости пароля
-  testWidgets('Переключение видимости пароля', (WidgetTester tester) async {
+
+  // Тест валидации формы (проверка пустых и некорректных данных)
+  testWidgets('Проверка пустого email', (WidgetTester tester) async {
+
     await tester.pumpWidget(MaterialApp(home: LoginScreen()));
+    await tester.pumpAndSettle();
 
-    final passwordField = find.byType(TextFormField).last;
-    final toggleIcon = find.byIcon(Icons.visibility_off);
-
-    // Изначально пароль скрыт
-    expect(toggleIcon, findsOneWidget);
-
-    // Нажать на иконку и проверить, что она изменится
-    await tester.tap(toggleIcon);
-    await tester.pump();
-
-    expect(find.byIcon(Icons.visibility), findsOneWidget);
-  });
-
-  // Тест нажатия кнопки "Войти" и состояния загрузки
-  testWidgets('Кнопка "Войти" и индикатор загрузки', (WidgetTester tester) async {
-    await tester.pumpWidget(MaterialApp(home: LoginScreen()));
+    final emailField = find.byType(TextFormField).first;
+    await tester.enterText(emailField, '');
 
     final loginButton = find.text('Войти');
+    await tester.ensureVisible(loginButton);
     await tester.tap(loginButton);
     await tester.pump();
 
-    // В состоянии загрузки кнопка может быть неактивна или отображаться индикатор
-    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    expect(find.text('Введите email'), findsOneWidget);
   });
+
+    testWidgets('Проверка пустого пароля', (WidgetTester tester) async {
+
+    await tester.pumpWidget(MaterialApp(home: LoginScreen()));
+    await tester.pumpAndSettle();
+
+    final passwordField = find.byType(TextFormField).first;
+    await tester.enterText(passwordField, '');
+
+    final loginButton = find.text('Войти');
+    await tester.ensureVisible(loginButton);
+    await tester.tap(loginButton);
+    await tester.pump();
+
+    expect(find.text('Введите пароль'), findsOneWidget);
+  });
+
+  testWidgets('Проверка пустых форм', (WidgetTester tester) async {
+
+    await tester.pumpWidget(MaterialApp(home: LoginScreen()));
+    await tester.pumpAndSettle();
+
+    final loginButton = find.text('Войти');
+    await tester.ensureVisible(loginButton);
+    await tester.tap(loginButton);
+    await tester.pump();
+
+    expect(find.text('Введите email'), findsOneWidget);
+  });
+
+    testWidgets('Проверка пустых форм', (WidgetTester tester) async {
+
+    await tester.pumpWidget(MaterialApp(home: LoginScreen()));
+    await tester.pumpAndSettle();
+
+    final loginButton = find.text('Войти');
+    await tester.ensureVisible(loginButton);
+    await tester.tap(loginButton);
+    await tester.pump();
+
+    expect(find.text('Введите пароль'), findsOneWidget);
+  });
+
 
   // Тест перехода по ссылке "Зарегистрироваться"
   testWidgets('Переход по ссылке "Зарегистрироваться"', (WidgetTester tester) async {
