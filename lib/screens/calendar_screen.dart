@@ -73,9 +73,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
         selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
         calendarFormat: _calendarFormat,
         availableCalendarFormats: const {
-          CalendarFormat.month: 'Месяц',
-          CalendarFormat.twoWeeks: '2 недели',
-          CalendarFormat.week: 'Неделя',
+          CalendarFormat.month: 'Неделя',
+          CalendarFormat.twoWeeks: 'Месяц',
+          CalendarFormat.week: '2 недели',
         },
         onFormatChanged: (format) {
           setState(() {
